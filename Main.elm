@@ -25,15 +25,22 @@ main =
 -- MODEL
 
 
+type alias Errors =
+    { startErr : String
+    , endErr : String
+    }
+
+
 type alias Model =
     { startDate : String
     , endDate : String
+    , errors : Errors
     }
 
 
 init : ( Model, Cmd msg )
 init =
-    ( Model "" "", Cmd.none )
+    ( Model "" "" (Errors "" ""), Cmd.none )
 
 
 
@@ -48,6 +55,13 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+  let
+    (model_, cmd_) = updateMsg msg model
+  in
+    ({model_ | errors = updateErrors model_}, cmd_)
+
+updateMsg : Msg -> Model -> ( Model, Cmd Msg )
+updateMsg msg model =
     case msg of
         StartDate dateStr ->
             ( { model | startDate = dateStr }, Cmd.none )
@@ -58,6 +72,26 @@ update msg model =
         Submit ->
             ( model, Cmd.none )
 
+getDateError : String -> String
+getDateError dateStr =
+    let
+        startResult =
+            Date.fromString dateStr
+    in
+        case startResult of
+            Err message ->
+                message
+
+            _ ->
+                ""
+
+updateErrors : Model -> Errors
+updateErrors model =
+    let
+      startErr = getDateError model.startDate
+      endErr = getDateError model.endDate
+    in
+      Errors startErr endErr
 
 
 -- SUBSCRIPTIONS
@@ -83,31 +117,31 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     Html.div []
-        [ view_form, view_calendar model ]
+        [ view_form model, view_calendar model ]
 
 
-view_form : Html Msg
-view_form =
+view_form : Model -> Html Msg
+view_form model =
     Html.form [ Html.Events.onSubmit Submit ]
         [ Html.h1 [] [ Html.text "Google calendar get events" ]
         , Html.label [ Html.Attributes.for "start-date" ] [ Html.text "start date" ]
         , Html.input
             [ Html.Attributes.id "start-date"
             , Html.Attributes.type_ "date"
-            , Html.Attributes.placeholder "begin"
+            , Html.Attributes.value model.startDate
             , Html.Events.onInput StartDate
             ]
             []
-        , Html.div [] []
+        , Html.div [] [ Html.text model.errors.startErr ]
         , Html.label [ Html.Attributes.for "end-date" ] [ Html.text "end date" ]
         , Html.input
             [ Html.Attributes.id "end-date"
             , Html.Attributes.type_ "date"
-            , Html.Attributes.placeholder "end"
+            , Html.Attributes.value model.endDate
             , Html.Events.onInput EndDate
             ]
             []
-        , Html.div [] []
+        , Html.div [] [ Html.text model.errors.endErr ]
         , Html.input [ Html.Attributes.type_ "submit" ] [ Html.text "submit" ]
         , Html.div [] []
         ]
