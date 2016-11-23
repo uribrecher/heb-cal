@@ -6,10 +6,8 @@ import Html.Events
 import Svg
 import Svg.Attributes
 import Time exposing (Time, second)
-import Set
-import Keyboard
-import Random
 import Date exposing (Date)
+import Http
 
 
 main =
@@ -35,12 +33,13 @@ type alias Model =
     { startDate : String
     , endDate : String
     , errors : Errors
+    , resultString : String
     }
 
 
 init : ( Model, Cmd msg )
 init =
-    ( Model "" "" (Errors "" ""), Cmd.none )
+    ( Model "" "" (Errors "" "") "", Cmd.none )
 
 
 
@@ -51,14 +50,17 @@ type Msg
     = Submit
     | StartDate String
     | EndDate String
+    | NewString (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  let
-    (model_, cmd_) = updateMsg msg model
-  in
-    ({model_ | errors = updateErrors model_}, cmd_)
+    let
+        ( model_, cmd_ ) =
+            updateMsg msg model
+    in
+        ( { model_ | errors = updateErrors model_ }, cmd_ )
+
 
 updateMsg : Msg -> Model -> ( Model, Cmd Msg )
 updateMsg msg model =
@@ -70,7 +72,43 @@ updateMsg msg model =
             ( { model | endDate = dateStr }, Cmd.none )
 
         Submit ->
-            ( model, Cmd.none )
+            ( model, submitRequest )
+
+        NewString (Result.Ok text) ->
+            ( { model | resultString = text }, Cmd.none )
+
+        NewString (Result.Err httpErr) ->
+            ( { model | resultString = httpErrToString httpErr }, Cmd.none )
+
+
+getRequest : String -> Http.Request String
+getRequest uri =
+    Http.getString uri
+
+
+submitRequest : Cmd Msg
+submitRequest =
+    Http.send NewString (getRequest "https://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=cats")
+
+
+httpErrToString : Http.Error -> String
+httpErrToString httpErr =
+    case httpErr of
+        Http.BadUrl msg ->
+            msg
+
+        Http.Timeout ->
+            "HTTP timeout error"
+
+        Http.NetworkError ->
+            "HTTP network error"
+
+        Http.BadStatus _ ->
+            "HTTP bad status"
+
+        Http.BadPayload a _ ->
+            a
+
 
 getDateError : String -> String
 getDateError dateStr =
@@ -85,13 +123,18 @@ getDateError dateStr =
             _ ->
                 ""
 
+
 updateErrors : Model -> Errors
 updateErrors model =
     let
-      startErr = getDateError model.startDate
-      endErr = getDateError model.endDate
+        startErr =
+            getDateError model.startDate
+
+        endErr =
+            getDateError model.endDate
     in
-      Errors startErr endErr
+        Errors startErr endErr
+
 
 
 -- SUBSCRIPTIONS
@@ -143,7 +186,7 @@ view_form model =
             []
         , Html.div [] [ Html.text model.errors.endErr ]
         , Html.input [ Html.Attributes.type_ "submit" ] [ Html.text "submit" ]
-        , Html.div [] []
+        , Html.div [] [ Html.text model.resultString ]
         ]
 
 
