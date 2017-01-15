@@ -86,10 +86,47 @@ getRequest uri =
     Http.getString uri
 
 
+authEndPoint =
+  "https://accounts.google.com/o/oauth2/v2/auth"
+
+encodeURLWithParams : String -> List (String, String) -> String
+encodeURLWithParams baseEndPoint paramsList =
+  let
+    paramStr =
+      List.map (\(a,b) -> (Http.encodeUri a) ++ "=" ++ (Http.encodeUri b)) paramsList |> String.join "&"
+  in
+    baseEndPoint ++ "?" ++ paramStr
+
+
+{-
+https://accounts.google.com/o/oauth2/v2/auth?
+  redirect_uri=https%3A%2F%2Fdevelopers.google.com%2Foauthplayground&
+    prompt=consent&
+      response_type=code&
+        client_id=407408718192.apps.googleusercontent.com&
+          scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly&
+            access_type=offline
+--}
+
+requestURI : String
+requestURI =
+    let
+      params = [
+          ("response_type", "token")
+        , ("client_id", "912220232513-hhlobd7gv3v4gblhb9d7mv2cji89bsa2.apps.googleusercontent.com")
+        , ("scope", "https://www.googleapis.com/auth/calendar.readonly")
+        , ("prompt", "consent")
+        , ("redirect_uri", "https://localhost:8000/oauth2callback")
+      ]
+    in
+      encodeURLWithParams authEndPoint params
+
+
 submitRequest : Cmd Msg
 submitRequest =
-    Http.send NewString (getRequest "https://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=cats")
-
+    requestURI
+      |> getRequest
+      |> Http.send NewString
 
 httpErrToString : Http.Error -> String
 httpErrToString httpErr =
@@ -187,6 +224,7 @@ view_form model =
         , Html.div [] [ Html.text model.errors.endErr ]
         , Html.input [ Html.Attributes.type_ "submit" ] [ Html.text "submit" ]
         , Html.div [] [ Html.text model.resultString ]
+        , Html.a [Html.Attributes.href requestURI] [Html.text "Auth"]
         ]
 
 
